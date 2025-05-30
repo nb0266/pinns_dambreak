@@ -1,0 +1,85 @@
+# config_parametric_improved.yaml
+# 改良版: パラメトリックPINNのための最適化された設定
+
+# Modulus configuration
+defaults:
+  - modulus_default
+  - arch:
+      - fully_connected
+  - scheduler: tf_exponential_lr
+  - optimizer: adam
+  - loss: sum
+  - _self_
+
+# Architecture improvements
+arch:
+  fully_connected:
+    input_keys: ["x", "y", "h_init"]
+    output_keys: ["h_net", "u_net", "c_net"]
+    nr_layers: 8  # 増加: 6→8層
+    layer_size: 256  # 増加: 128→256ユニット
+    # Modulusでは通常、活性化関数はデフォルトのtanhを使用
+    # weight_normやactivationの変更は、コード側で行う必要がある
+
+# Training configuration
+training:
+  rec_validation_freq: 1000
+  rec_inference_freq: 2000
+  rec_monitor_freq: 100
+  rec_constraint_freq: 2000
+  max_steps: 30000  # 各ステージでの最大ステップ数
+
+# Batch sizes - increased for better statistics
+batch_size:
+  interior: 4096  # 増加: 2048→4096
+  initial_conditions: 2048  # 増加: 1024→2048
+  boundary: 1024  # 増加: 512→1024
+
+# Optimizer settings - adjusted for better convergence
+optimizer:
+  lr: 2e-4  # わずかに減少: 3e-4→2e-4
+  weight_decay: 1e-5  # 追加: L2正則化
+
+# Scheduler - more gradual decay
+scheduler:
+  decay_rate: 0.98  # より緩やかな減衰: 0.95→0.98
+  decay_steps: 2000
+
+# Custom parameters
+custom:
+  # Physical parameters (unchanged)
+  physical:
+    L_dim: 2000.0  # mm
+    T_dim: 200.0   # s
+    H_ref_dim: 200.0  # mm (reference height for scaling)
+    h_init_min_dim: 100.0  # mm
+    h_init_max_dim: 300.0  # mm
+    g_accel: 9.81  # m/s^2
+    dam_pos_dim: 1000.0  # mm
+    C0_init: 0.9
+    Cf_param: 0.01
+    D_physical: 20.0  # mm^2/s
+  
+  # Domain parameters (unchanged)
+  domain:
+    x_min_nd: 0.0
+    x_max_nd: 1.0
+    t_min_nd: 0.0
+  
+  # Stability parameter
+  h_epsilon_stab: 1e-7
+  
+  # Progressive training parameters (new)
+  use_progressive_training: true
+  progressive_stages: 3  # 段階的に範囲を広げる
+  
+# Hydra configuration
+hydra:
+  job:
+    name: "parametric_swe_co2_improved"
+    chdir: true
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${hydra.job.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
